@@ -1,0 +1,622 @@
+<html>
+<head>
+	<title>Chicago Crime Distribution over Years</title>
+	<script src="https://d3js.org/d3.v5.min.js"></script>
+	<script src="https://d3js.org/topojson.v2.min.js"></script>
+	<style>
+		svg {
+			display: block;
+			margin: 0 auto;
+		}
+	.street {
+      fill: white;
+      stroke: none;
+    }
+    .ward{
+      fill: lightgrey;
+      stroke: none;
+    }
+    .street-outline {
+      stroke:black;
+      stroke-width: 2px;
+      fill: none;
+    }
+    .ward-outline {
+      stroke:black ;
+      stroke-width: 4px;
+      fill: none;
+    }
+	div.tooltip {
+    position: absolute;
+    text-align: center;
+    width: 120px;
+    height: 30px;
+    padding: 2px;
+    font: 12px sans-serif;
+    background: burlywood;
+    border: 0px;
+    border-radius: 8px;
+    pointer-events: none;
+}
+div.tooltip1 {
+    position: absolute;
+    text-align: center;
+    width: 120px;
+    height: 60px;
+    padding: 2px;
+    font: 12px sans-serif;
+    background: burlywood;
+    border: 0px;
+    border-radius: 8px;
+    pointer-events: none;
+}
+p {
+  color: white;
+  margin: 50px;
+}
+a {
+  color: #4FDEF2;
+}
+div {
+	font-size: 12pt;
+	margin: 40 auto;
+	text-align: center;
+}
+.axis {
+  fill: gray;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+}
+.axis .halo {
+  stroke: gray;
+  stroke-width: 4px;
+  stroke-linecap: round;
+}
+.slider .handle path {
+  stroke: black;
+  stroke-width: 3px;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.slider .handle text {
+  fill: black;
+  text-align: center;
+  font-size: 18px;
+}
+body {
+	background-color: #ffccbc;
+}
+	</style>
+</head>
+
+<body>
+	<p id="title">
+		<center>
+			<h1>
+				<font color="black" size="7">Chicago Crime Report</font>
+			</h1>
+			<br>
+			<h2>
+				<font color=" red" size="4">Can you ever imagine?<br><br></font>
+				<font color=" red" size="5">Approximately 10 people are shot on an average day in Chicago.</font>
+			</h2>
+		</center>
+		<div style="margin-left:10px; line-height:20px;">
+			<font color="black" size="4">This map introduces the crimes in Chicago
+				from 2001 to present.It contains some detailed information about the<br>
+				reported incidents of crime, including time, location, description,
+				arrested or not, criminal background and so on.<br><br><br>Move your mouse to see
+				the details of the crime in Chicago.<br>(click, zoom, or select crime type)</font>
+		</div>
+		<center>
+			<h2>
+				<font color="black" size="5">Chicago City Map for Crime Details</font>
+			</h2>
+		</center>
+	</p>
+
+	<svg id="map" width=800 height=530 style ="border: 1px solid black"}></svg>
+	<!-- <div id="crime" style ="border: 1px solid black"></div> -->
+	<div id="year"></div>
+	<div id="information"></div>
+
+	<script>
+		const requestData = async () => {
+			const streets = await d3.json("maps/streets.topojson");
+			// console.log(streets);
+			const wards = await d3.json("maps/wards.topojson");
+		//	console.log(wards);
+			const street = topojson.feature(streets, streets.objects.shapes);
+			const streetMesh = topojson.mesh(streets, streets.objects.shapes);
+			const ward = topojson.feature(wards, wards.objects.shapes);
+			const wardMesh = topojson.mesh(wards, wards.objects.shapes);
+
+		// console.log(ward.features);
+			let map = d3.select("svg#map");
+			let mapWidth = map.attr("width") * 0.8;
+			let mapHeight = map.attr("height");
+			let projection = d3.geoMercator().fitSize([mapWidth, mapHeight], ward);
+			let path = d3.geoPath().projection(projection);
+			let viewport = map.append("g");
+			var div = d3.select("body").append("div")
+    							.attr("class", "tooltip")
+  								.style("opacity", 0);
+			var div1 = d3.select("body").append("div")
+    							.attr("class", "tooltip1")
+  								.style("opacity", 0);
+			// ward of chicago
+			viewport.selectAll(".ward").data(ward.features)
+				.enter()
+				.append("path")
+				.attr("id", d => d.properties["District_N"])
+				.attr("class", "ward")
+				.attr("d", path)
+				.on("mouseover", function(d) {
+            	d3.select(this).transition()
+                .duration(200)
+                .style("fill", "#FFDB58");})
+				.on("mouseout", function(d) {
+				d3.select(this).transition()
+                .duration(3500)
+				.style("fill", "lightgrey");});
+			//	.style("opacity", .5);
+			viewport.append("path")
+				.datum(wardMesh)
+				.attr("class", "ward-outline")
+				.attr("d", path);
+
+			// streets
+			viewport.selectAll(".street").data(street.features)
+				.enter()
+				.append("path")
+				.attr("class", "street")
+				.attr("visibility", "hidden")// should be set to visible when map is zoomed
+				.attr("d", path);
+
+			viewport.append("path")
+      			.datum(streetMesh)
+      			.attr("class","street-outline")
+      			.attr("visibility", "hidden")
+     			.attr("d", path);
+				 // load the crime data
+			const crime = await d3.csv("crime_2019.csv");
+			console.log(crime);
+			var street_info={};
+			let count=[];
+/*----------------------------------------------------------------------------------------------------------------------------------
+    displaying criminal activities street wise
+    ----------------------------------------------------------------------------------------------------------------------------------*/
+				let temp=[];
+				var date=[];
+				let location={};
+				var street_info=crime.map(function(d){ return d.Block;});
+				   street_info=[...new Set(street_info)].sort();
+
+
+				for(let j=0;j<street_info.length;j++)
+				{
+					 count = crime.filter(d => d.Block === street_info[j]);
+
+					 temp[j]=count.length;
+
+					let longi=d3.mean(count,function(d){return parseFloat(d.Longitude)});
+					let lati=d3.mean(count,function(d){return parseFloat(d.Latitude)});
+				//	date[j]=count.map(function(d){ return (d.Date);});
+				//	console.log("date"+date);
+					let location=projection([ longi,lati]);
+
+					//console.log("location"+location);
+			//	console.log(longi);
+			//	console.log(lati);
+
+
+
+			// location["lat"]=
+  		  //		console.log("street : "+street_info[i]+"count : "+temp[i]);
+				let opacityScale=	d3.scaleLinear()
+									.domain([1,40])
+									.range([0.3,1]);
+				let crimeCountScale= d3.scaleLinear()
+									.domain([1,40])
+									.range([0.5,2.5]);
+				 viewport.append("circle")
+				.attr("r", crimeCountScale(temp[j]))
+				.attr("cx", location[0])
+				.attr("cy", location[1])
+			 	.attr("class", "circle_street")
+				.attr("visibility", "hidden")
+				.style("opacity", opacityScale(temp[j]))
+			 	.style("fill", "red")
+				.on("mouseover", function(d) {
+            	div1.transition()
+                .duration(200)
+                .style("opacity", .9);
+           	 	div1.html("No. of Criminal Activities: "+temp[j] + "<br/>"+"Street: "+street_info[j])
+                .style("left", (d3.event.pageX) + "px")
+                .style("top", (d3.event.pageY - 28) + "px");})
+				.on("mouseout", function(d) {
+            	div1.transition()
+                .duration(500)
+                .style("opacity", 0);});
+				// tip=viewport.append("text")
+          		// .attr("class","text-tip-street")
+          		// .attr("x",location[0])
+         		// .attr("y",location[1])
+         		//  .attr("text-anchor", "middle")
+          		// .attr("font-size", "1px")
+				//   .attr("visibility", "hidden")
+         		//  .style("text-transform", "capitalize")
+          		// .text(temp[j]);
+
+
+			 }
+
+/*----------------------------------------------------------------------------------------------------------------------------------
+    creating a slider brush for the crime date
+    ----------------------------------------------------------------------------------------------------------------------------------*/
+var parsedNow="1/1/19" ;
+let formatDate = d3.timeParse("%m/%d/%Y");
+var range;
+// parameters
+var margin = {
+    top: 50,
+    right: 50,
+    bottom: 50,
+    left: 50
+  },
+  width = 800 - margin.left - margin.right,
+  height = 300 - margin.bottom - margin.top;
+// scale function
+var timeScale = d3.scaleTime()
+  .domain([new Date('01/01/2019'), new Date('02/28/2019')])
+  .range([0, width]);
+ // .clamp(true);
+ var margin = 20,
+        width = 800 - margin * 2,
+        height = 20;
+    var brush = d3.brushX()
+        .extent([[0,0], [width,height]])
+        .on("end", brushed);
+    var svg = d3.select("body").append("svg")
+        .attr("width", width )
+        .attr("height", height + margin)
+      .append("g")
+        .attr("transform", "translate(" + margin + "," + margin + ")")
+        .call(d3.axisBottom()
+            .scale(timeScale)
+            .ticks(8));
+    var brushg = svg.append("g")
+        .attr("class", "brush")
+        .call(brush)
+		let k="";
+				 let l="";
+				 let n="";
+				 let uck="";
+
+				 let data=[];
+/*----------------------------------------------------------------------------------------------------------------------------------
+     selecting the region which is brushed.
+    ----------------------------------------------------------------------------------------------------------------------------------*/
+    function brushed() {
+      range= d3.brushSelection(this)
+		  .map(timeScale.invert);
+		console.log(range[0]);
+
+      d3.selectAll("span")
+          .text(function(d, i) {
+            return Math.round(range[i])
+		  })
+		  let parseDate = d3.timeFormat("%m/%d/%Y");
+let now = new Date();
+console.log(now);
+parsedNow = parseDate(range[0]);
+
+console.log(parsedNow) //returns null
+/*----------------------------------------------------------------------------------------------------------------------------------
+    comparing the crime_date with date selected by brush and parsing data accordingly
+    ----------------------------------------------------------------------------------------------------------------------------------*/
+var crime_date=crime.map(function(d){ return ((d.Date).split(" ")[0]);});
+					crime_date=[...new Set(crime_date)].sort();
+
+				let crime1=[];
+					let	m=parsedNow.split("/");
+
+for(let i=0;i<crime_date.length;i++)
+				{
+
+				//	console.log(m[0]);
+					if(m[0]<10)
+					{
+						k=m[0].replace(/0/g,"");
+						//console.log("k"+m[0]);
+					}
+					else{
+						k=m[0];
+					}
+					if(m[1]<10)
+					{
+						 l=m[1].replace(/0/g,"");
+					//	console.log("l"+m[1]);
+					}
+					else{
+						l=m[1];
+					}
+					n=m[2].replace(/2019/g,"19");
+				 uck=	((k.concat("/")).concat(l.concat("/"))).concat(n);
+				//	console.log("uck"+uck);
+
+					if (crime_date[i]===uck)
+					{
+						console.log("found"+uck);
+						data = crime.filter(d => d.Date.includes(crime_date[i]));
+					console.log("kya filter hua"+JSON.stringify(data));
+
+					}
+
+					///	console.log("not found"+parsedNow+"crime data"+crime_date[i]);
+
+
+
+
+				}
+
+    }
+
+    brush.move(brushg, [20, 50].map(timeScale));
+/*----------------------------------------------------------------------------------------------------------------------------------
+     displaying total no. of criminal activities in each ward
+    ----------------------------------------------------------------------------------------------------------------------------------*/
+			// get coordinates of center of wards
+			var ward_info = {};
+			for (let i = 0; i < ward.features.length; i++) {
+				let current = ward.features[i];
+				let coordinates = current.geometry.coordinates["0"];
+				let longitudes = coordinates.map(d => d[0]);
+				let latitudes = coordinates.map(d => d[1]);
+				ward_info[i+1] = [[(d3.max(longitudes)+d3.min(longitudes))/2, (d3.max(latitudes)+d3.min(latitudes))/2], 0];
+			}
+//console.log(JSON.stringify(crime['Date']));
+	//	count number of crimes in each ward
+		 crime.forEach( (d, i) => {
+			ward_info[d["Ward"]][1] += 1;
+			} );
+		//	 console.log("Ward"+JSON.stringify(ward_info));
+			// // draw circles, use the diameter of circles to represent number of crimes
+			 let num = d3.values(ward_info).map(d => d[1]);
+			const circleScale = d3.scaleLinear()
+								.domain(d3.extent(num))
+									.range([2,13]);
+			var circle;
+			for (let i = 0; i < d3.keys(ward_info).length; i++) {
+			 	let loc = projection(ward_info[i+1][0]);
+			 	circle=viewport.append("circle")
+				.attr("r", circleScale(ward_info[i+1][1]))
+				.attr("cx", loc[0])
+				.attr("cy", loc[1])
+			 	.attr("class", "circle")
+				.attr("num", ward_info[i+1][1])// number of crimes happened in this ward
+				.attr("ward_N", i)// number of ward
+				.attr("visibility", "visible")
+				.style("opacity", 0.5)
+			 	.style("fill", "red")
+				.on("mouseover", function(d) {
+            	div.transition()
+                .duration(200)
+                .style("opacity", .9);
+           	 	div.html("No. of Criminal Activities: "+ward_info[i+1][1] + "<br/>")
+                .style("left", (d3.event.pageX) + "px")
+                .style("top", (d3.event.pageY - 28) + "px");})
+				.on("mouseout", function(d) {
+            	div.transition()
+                .duration(500)
+                .style("opacity", 0);});
+		//	console.log("street"+JSON.stringify(street.features));
+
+
+		//	count number of crimes in each street
+		// for (let i = 0; i < street.features.length; i++) {
+		// 		let current1 = street.features[i];
+		// 		console.log("current"+JSON.stringify(current1));
+		// 		let coordinates1 = current1.geometry.coordinates["0"];
+		// 		console.log("coordinates"+JSON.stringify(coordinates1));
+		// 		let longitudes1 = coordinates1[0];
+		// 		console.log("longi"+JSON.stringify(longitudes1));
+		// 		let latitudes1 = coordinates1[1];
+		// 		console.log("lati"+JSON.stringify(latitudes1));
+		// 		street_info[i+1] = [longitudes1, latitudes1, 0];
+		// 	}
+
+			}
+
+/*----------------------------------------------------------------------------------------------------------------------------------
+     too many individual instances of crime present therfore not considering them as of now, as zoom option fails.
+    ----------------------------------------------------------------------------------------------------------------------------------*/
+		//
+			// console.log("Block"+JSON.stringify(ward_info));
+		//	console.log("street info"+JSON.stringify(street_info));
+
+			// group current crime types into four main types
+			let safety_ind = [ 'ASSAULT', 'NARCOTICS', 'OFFENSE INVOLVING CHILDREN', 'CRIM SEXUAL ASSAULT', 'SEX OFFENSE', 'HOMICIDE', 'STALKING', 'KIDNAPPING'];
+			let property_ind = ['DECEPTIVE PRACTICE', 'THEFT', 'BURGLARY', 'BATTERY', 'ROBBERY', 'MOTOR VEHICLE THEFT', 'INTIMIDATION', 'GAMBLING'];
+			let safety_soc = [ "CRIMINAL DAMAGE", 'WEAPONS VIOLATION', 'PUBLIC PEACE VIOLATION', 'CRIMINAL TRESPASS', 'INTERFERENCE WITH PUBLIC OFFICER', 'CONCEALED CARRY LICENSE VIOLATION', 'PROSTITUTION', 'HUMAN TRAFFICKING', 'OBSCENITY'];
+			let others = [ 'NON-CRIMINAL', 'OTHER OFFENSE'];
+			// map crime to different color
+			crime_to_color = {"Personal Property": "steelblue", "Personal Safety": "darkorange", "Social Safety": "red", "Others": "green"};
+			// use circle to represent crime, one for each, different type with different color
+			// viewport.selectAll("circle#small")
+			// 	.data(crime)
+			// 	.enter()
+			// 	.append("circle")
+			// 	.attr("r", 1)
+			// 	.attr("cx", d => projection([d["Longitude"], d["Latitude"]])[0])
+			// 	.attr("cy", d => projection([d["Longitude"], d["Latitude"]])[1])
+			// 	.attr("class", "small")
+			// 	.attr("time", d => d["Date"])// happen date and time
+			// 	.attr("type", d => d["Primary Type"])// crime type
+			// 	.attr("description", d => d["Description"])// more detailed description
+			// 	.attr("arrest", d => d["Arrest"])
+			// 	.attr("domestic", d => d["Domestic"])
+			// 	.attr("ward_No", d => d["Ward"])// number of ward
+			// 	//.attr("visibility", "hidden")
+			// 	.style("opacity", 0.8)
+			// 	.style("fill", d => {
+			// 		if (property_ind.indexOf(d["Primary Type"]) != -1) {
+			// 			return crime_to_color["Personal Property"];
+			// 		}
+			// 		if (safety_ind.indexOf(d["Primary Type"]) != -1) {
+			// 			return crime_to_color["Personal Safety"];
+			// 		}
+			// 		if (safety_soc.indexOf(d["Primary Type"]) != -1) {
+			// 			return crime_to_color["Social Safety"];
+			// 		}
+			// 		return crime_to_color["Others"];
+			// 	});
+			// append legend to select different type of crimes
+			let legend = map.append("g")
+							.attr("transform", "translate(" + map.attr("width")*0.8 + "," + map.attr("height")*0.2 + ")");
+			legend.append("text")
+					.text("Crime Type");
+			d3.keys(crime_to_color).forEach( (d, i) => {
+				legend.append("text")
+					.text(d)
+					.attr("x", 0)
+					.attr("y", map.attr("height")*0.1*(i+1))
+					.attr("class", "type")
+					.style("fill", crime_to_color[d])
+					.on("mouseover", function () {
+						d3.selectAll("circle.small").each( function() {
+							let circle = d3.select(this);
+							let type = undefined;
+							if (d == "Personal Property") {
+								type = property_ind;
+							}else if (d == "Personal Safety") {
+								type = safety_ind;
+							}else if (d == "Social Safety") {
+								type = safety_soc;
+							}else {
+								type = others;
+							};
+							if (type.indexOf(circle.attr("type")) != -1) {
+								circle.attr("r", 1)
+										.style("opacity", 0.8);
+							}else {
+								circle.style("opacity", 0.1);
+							};
+						});
+					});
+			});
+			// restore opacity when mouseout
+			legend.on("mouseout", function() {
+				d3.selectAll("circle.small")
+					.attr("r", 1)
+					.style("opacity", 0.1);
+			})
+/*----------------------------------------------------------------------------------------------------------------------------------
+     creating zoom variable.
+    ----------------------------------------------------------------------------------------------------------------------------------*/
+				 var zoom = d3.zoom()
+                  .scaleExtent([1,8])
+                  .on("zoom", zoomed);
+				  map.call(zoom);
+				  map.call(zoom.transform, d3.zoomIdentity);
+		/*----------------------------------------------------------------------------------------------------------------------------------
+      calling zoom function to highlight crime streetwise.
+    ----------------------------------------------------------------------------------------------------------------------------------*/
+				  function zoomed()
+				  {
+
+							let transform = d3.event.transform;
+
+							viewport.attr("transform", transform.toString() );
+							viewport.selectAll("circle#small")
+							.attr("r", 1 / transform.k)
+							.style("opacity", 0.2);
+
+							viewport.select(".ward-outline")
+										.style("stroke-width", 2 / transform.k);
+							viewport.select(".street-outline")
+										.style("stroke-width", 1 / transform.k);
+							viewport.select(".text-tip-street")
+								.attr("font-size",  5/ transform.k);
+							viewport.select(".street-outline")
+										.attr("visibility", (transform.k > 4) ? "visible" : "hidden");
+							viewport.selectAll(".street")
+										.attr("visibility", (transform.k > 4) ? "visible" : "hidden");
+							viewport.selectAll(".circle").attr("visibility", (transform.k < 4) ? "visible" : "hidden");
+							viewport.selectAll(".text-tip").attr("visibility", (transform.k < 4) ? "visible" : "hidden");
+							viewport.selectAll(".circle_street").attr("visibility", (transform.k > 4) ? "visible" : "hidden");
+							viewport.selectAll(".text-tip-street").attr("visibility", (transform.k > 4) ? "visible" : "hidden");
+				  }
+
+				viewport.selectAll(".ward").on("click",clicked);
+   				viewport.selectAll(".street").on("click",clicked);
+			 viewport.selectAll(".circle_street").on("click",clicked);
+			 viewport.selectAll(".text-tip-street").on("click",clicked);
+	/*----------------------------------------------------------------------------------------------------------------------------------
+      identifying the zoom area to be reflected in case of zoom
+    ----------------------------------------------------------------------------------------------------------------------------------*/
+			function clicked(d)
+			{
+
+							var bounds = path.bounds(d.geometry);
+							dx = bounds[1][0] - bounds[0][0];
+							dy = bounds[1][1] - bounds[0][1];
+							x = (bounds[0][0] + bounds[1][0]) / 2;
+							y = (bounds[0][1] + bounds[1][1]) / 2;
+
+
+							scale = Math.max(1, Math.min(10, 0.9 / Math.max( dx / mapWidth, dy / mapHeight )));
+
+							translate = [mapWidth / 2 - x * scale, mapHeight / 2 - y * scale];
+
+							let newTransform = d3.zoomIdentity
+												.translate(translate[0],translate[1])
+												.scale(scale);
+
+						map.transition().duration(1000).call(zoom.transform, newTransform);
+    		 }
+
+		};
+		requestData();
+
+		/*----------------------------------------------------------------------------------------------------------------------------------
+		    community area detail chart
+		    ----------------------------------------------------------------------------------------------------------------------------------*/
+	/*			var width1  = 400;
+				var height1 = 300;
+
+				var title2 = d3.select('body').append("div")
+					.style("color", "white")
+
+				title2.append("text")
+					.style("fill", "white")
+					.style("text-anchor", "middle")
+					.style("font-weight", "bold")
+					.style("font-size", "18")
+					.text("Community Area");
+
+		var svgc = d3.select("body").append("svg")
+        .attr("width", width1 )
+        .attr("height", height1 + margin)
+      .append("g")
+        .attr("transform", "translate(" + margin + "," + margin + ")") */
+
+	</script>
+
+	<p id="notes">
+		<div style="margin-right:10px; line-height:13px">
+			<font color="black" size="3"><br> More to know: <br> <br>
+
+
+
+				<br>Note: Data is extracted from the Chicago Police Department's CLEAR (Citizen Law Enforcement Analysis and Reporting) system.<br>
+
+				<br>
+
+			</font>
+		</div>
+	</p>
+
+</body>
+</html>
