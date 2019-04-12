@@ -30,7 +30,7 @@
     position: absolute;
     text-align: center;
     width: 120px;
-    height: 30px;
+    height: auto;
     padding: 2px;
     font: 12px sans-serif;
     background: burlywood;
@@ -41,12 +41,24 @@
 div.tooltip1 {
     position: absolute;
     text-align: center;
-    width: 120px;
-    height: 60px;
+    width: auto;
+    height: auto;
     padding: 2px;
     font: 12px sans-serif;
     background: burlywood;
     border: 0px;
+    border-radius: 8px;
+    pointer-events: none;
+}
+div.tooltip2 {
+    position: absolute;
+    text-align: center;
+    width: auto;
+    height: auto;
+    padding: 2px;
+    font: 12px sans-serif;
+    background: burlywood;
+    border: 1px solid black;
     border-radius: 8px;
     pointer-events: none;
 }
@@ -114,8 +126,8 @@ body {
 		<div style="margin-left:10px; line-height:20px;">
 			<font color="black" size="4">This map introduces the crimes in Chicago
 				in February 2019.It contains some detailed information about the<br>
-				reported incidents of crime, including time, location, description,
-				arrested or not, criminal background and so on.<br><br><br>Move your mouse to see
+				reported incidents of crime, including time, location, description.
+				<br><br><br>Move your mouse to see
 				the details of the crime in Chicago.<br>(click, zoom, or select certain time periods)</font>
 		</div>
 		<center>
@@ -221,77 +233,8 @@ body {
 				 // load the crime data
 			const crime = await d3.csv("crime_2019.csv");
 			// console.log(crime);
-			var street_info={};
-			let count=[];
-/*----------------------------------------------------------------------------------------------------------------------------------
-    displaying criminal activities street wise
-    ----------------------------------------------------------------------------------------------------------------------------------*/
-				let temp=[];
-				var date=[];
-				let location={};
-				var street_info=crime.map(function(d){ return d.Block;});
-				   street_info=[...new Set(street_info)].sort();
 
-
-				for(let j=0;j<street_info.length;j++)
-				{
-					 count = crime.filter(d => d.Block === street_info[j]);
-
-					 temp[j]=count.length;
-
-					let longi=d3.mean(count,function(d){return parseFloat(d.Longitude)});
-					let lati=d3.mean(count,function(d){return parseFloat(d.Latitude)});
-				//	date[j]=count.map(function(d){ return (d.Date);});
-				//	console.log("date"+date);
-					let location=projection([ longi,lati]);
-
-					//console.log("location"+location);
-			//	console.log(longi);
-			//	console.log(lati);
-
-
-
-			// location["lat"]=
-  		  //		console.log("street : "+street_info[i]+"count : "+temp[i]);
-				let opacityScale=	d3.scaleLinear()
-									.domain([1,40])
-									.range([0.3,1]);
-				let crimeCountScale= d3.scaleLinear()
-									.domain([1,40])
-									.range([0.5,2.5]);
-				 viewport.append("circle")
-				.attr("r", crimeCountScale(temp[j]))
-				.attr("cx", location[0])
-				.attr("cy", location[1])
-			 	.attr("class", "circle_street")
-				.attr("visibility", "hidden")
-				.style("opacity", opacityScale(temp[j]))
-			 	.style("fill", "red")
-				.on("mouseover", function(d) {
-            	div1.transition()
-                .duration(200)
-                .style("opacity", .9);
-           	 	div1.html("No. of Criminal Activities: "+temp[j] + "<br/>"+"Street: "+street_info[j])
-                .style("left", (d3.event.pageX) + "px")
-                .style("top", (d3.event.pageY - 28) + "px");})
-				.on("mouseout", function(d) {
-            	div1.transition()
-                .duration(500)
-                .style("opacity", 0);});
-				// tip=viewport.append("text")
-          		// .attr("class","text-tip-street")
-          		// .attr("x",location[0])
-         		// .attr("y",location[1])
-         		//  .attr("text-anchor", "middle")
-          		// .attr("font-size", "1px")
-				//   .attr("visibility", "hidden")
-         		//  .style("text-transform", "capitalize")
-          		// .text(temp[j]);
-
-
-			 }
-
-/*----------------------------------------------------------------------------------------------------------------------------------
+			/*----------------------------------------------------------------------------------------------------------------------------------
     creating a slider brush for the crime date
     ----------------------------------------------------------------------------------------------------------------------------------*/
 var parsedNow="1/1/19" ;
@@ -341,6 +284,56 @@ var timeScale = d3.scaleTime()
 
 				 let data=[];
 
+			
+	/*----------------------------------------------------------------------------------------------------------------------------------
+    displaying criminal activities street wise
+    ----------------------------------------------------------------------------------------------------------------------------------*/		
+			var street_info={};
+			let count=[];
+				let temp=[];
+				var date=[];
+				let location={};
+				var street_info=crime.map(function(d){ return d.Block;});
+		//		street_info=[...new Set(street_info)].sort();
+				for(let j=0;j<street_info.length/4;j++)
+				{
+					 count = crime.filter(d => d.Block === street_info[j]);
+
+					 temp[j]=count.length;
+
+					let longi=d3.mean(count,function(d){return parseFloat(d.Longitude)});
+					let lati=d3.mean(count,function(d){return parseFloat(d.Latitude)});
+					let location=projection([ longi,lati]);
+					let opacityScale=	d3.scaleLinear()
+									.domain([1,10])
+									.range([0.5,1]);
+				let crimeCountScale= d3.scaleLinear()
+									.domain([1,10])
+									.range([1,2.5]);
+				 viewport.append("circle")
+				.attr("r", crimeCountScale(temp[j]))
+				.attr("cx", location[0])
+				.attr("cy", location[1])
+			 	.attr("class", "circle_street")
+				.attr("visibility", "hidden")
+				.style("opacity", opacityScale(temp[j]))
+			 	.style("fill", "red")
+				.on("mouseover", function(d) {
+        div1.transition()
+                .duration(200)
+                .style("opacity", .9);
+        div1.html("No. of Criminal Activities: "+temp[j] + "<br/>"+"Street: "+street_info[j])
+                .style("left", (d3.event.pageX) + "px")
+                .style("top", (d3.event.pageY - 28) + "px");})
+				.on("mouseout", function(d) {
+            	div1.transition()
+                .duration(500)
+                .style("opacity", 0);});
+
+			 }
+
+/*----------------------------------------------------------------------------------------------------------------------------------
+   
  	// function evalFilters(d) {
  	// 	let metCriteria = false;
  	// 	range= d3.brushSelection(this)
@@ -406,21 +399,23 @@ var timeScale = d3.scaleTime()
 /*----------------------------------------------------------------------------------------------------------------------------------
      selecting the region which is brushed.
     ----------------------------------------------------------------------------------------------------------------------------------*/
-    function brushed() {
+    function brushed()
+		
+		{
+			d3.selectAll(".circle_date").remove();
       range= d3.brushSelection(this)
 		  .map(timeScale.invert);
-		console.log(range[0]);
 
       d3.selectAll("span")
           .text(function(d, i) {
             return Math.round(range[i])
 		  })
-		  let parseDate = d3.timeFormat("%m/%d/%Y");
+let parseDate = d3.timeFormat("%m/%d/%Y");
 let now = new Date();
 console.log(now);
 parsedNow = parseDate(range[0]);
 
-console.log(parsedNow) //returns null
+
 /*----------------------------------------------------------------------------------------------------------------------------------
     comparing the crime_date with date selected by brush and parsing data accordingly
     ----------------------------------------------------------------------------------------------------------------------------------*/
@@ -456,25 +451,63 @@ for(let i=0;i<crime_date.length;i++)
 					let metCriteria = true;
 					if (crime_date[i]===uck)
 					{
-						console.log("found"+uck);
+						
 						data = crime.filter(d => d.Date.includes(crime_date[i]));
-					console.log("kya filter hua"+JSON.stringify(data));
-						return metCriteria;
-					}
+					
+					
 
-					///	console.log("not found"+parsedNow+"crime data"+crime_date[i]);
+			
+			/*----------------------------------------------------------------------------------------------------------------------------------
+    displaying criminal activities street wise
+    ----------------------------------------------------------------------------------------------------------------------------------*/		
+		var street_info={};
+			let count=[];
+				let temp=[];
+				var date=[];
+				let location={};
+				var street_info=data.map(function(d){ return d.Block;});
+			//	street_info=[...new Set(street_info)].sort();
+				var datecriem=[];
+				for(let j=0;j<street_info.length;j++)
+				{
+					 count = data.filter(d => d.Block === street_info[j]);
+					 temp[j]=count.length;
 
+					let longi=d3.mean(count,function(d){return parseFloat(d.Longitude)});
+					let lati=d3.mean(count,function(d){return parseFloat(d.Latitude)});
+					let location=projection([ longi,lati]);
+					let opacityScale=	d3.scaleLinear()
+									.domain([1,10])
+									.range([0.8,1]);
+				let crimeCountScale= d3.scaleLinear()
+									.domain([1,10])
+									.range([1,2.5]);
+				 viewport.append("circle")
+				.attr("r", crimeCountScale(temp[j]))
+				.attr("cx", location[0])
+				.attr("cy", location[1])
+			 	.attr("class", "circle_date")
+				.attr("visibility", "visible")
+				.style("opacity", opacityScale(temp[j]))
+			 	.style("fill", "black")
+				.on("mouseover", function(d) {
+        div1.transition()
+                .duration(200)
+                .style("opacity", .9);
+        div1.html("No. of Criminal Activities: "+temp[j] + "<br/>"+"Street: "+street_info[j]+ "<br/>"+"Date: "+uck)
+                .style("left", (d3.event.pageX) + "px")
+                .style("top", (d3.event.pageY - 28) + "px");})
+				.on("mouseout", function(d) {
+            	div1.transition()
+                .duration(500)
+                .style("opacity", 0);});
 
+			 }
 
+			}
 
-				}
-
-		// decide which view to adjust through its attribute "visibility"
-		console.log(viewport.selectAll(".circle"));
-		viewport.selectAll("circle_street")
-		viewport.selectAll(".circle")
-				.attr("stroke", d => (evalFilters(d)) ? "black" : "none");
-
+			}
+	
 
 
     }
@@ -664,11 +697,13 @@ for(let i=0;i<crime_date.length;i++)
 							viewport.selectAll(".text-tip").attr("visibility", (transform.k < 4) ? "visible" : "hidden");
 							viewport.selectAll(".circle_street").attr("visibility", (transform.k > 4) ? "visible" : "hidden");
 							viewport.selectAll(".text-tip-street").attr("visibility", (transform.k > 4) ? "visible" : "hidden");
+							viewport.selectAll(".circle_date").attr("visibility", (transform.k > 4) ? "visible" : "hidden");
 				  }
 
 				viewport.selectAll(".ward").on("click",clicked);
-   				viewport.selectAll(".street").on("click",clicked);
+   			viewport.selectAll(".street").on("click",clicked);
 			 viewport.selectAll(".circle_street").on("click",clicked);
+			 viewport.selectAll(".circle_date").on("click",clicked);
 			 viewport.selectAll(".text-tip-street").on("click",clicked);
 	/*----------------------------------------------------------------------------------------------------------------------------------
       identifying the zoom area to be reflected in case of zoom
